@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GreenTrace | Post Waste</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #1e1e1e;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: 400px;
+        }
+        h2 { color: #00FF85; margin-bottom: 20px; text-align: center; }
+        label { display: block; margin-bottom: 8px; font-size: 0.9em; color: #bbb; }
+        select, input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background-color: #2a2a2a;
+            color: white;
+            box-sizing: border-box;
+        }
+        .location-status {
+            background-color: #2a2a2a;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #00FF85;
+            font-size: 0.85em;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: #00FF85;
+            color: #121212;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1em;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        button:hover { background-color: #00cc6a; transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Post Waste Item</h2>
+    
+    <form action="http://localhost:8080/api/waste/add" method="POST">
+        <label>Waste Category</label>
+        <select name="category">
+            <option value="PLASTIC">Plastic</option>
+            <option value="METAL">Metal</option>
+            <option value="E-WASTE">E-Waste</option>
+            <option value="PAPER">Paper</option>
+        </select>
+
+        <label>Weight (kg)</label>
+        <input type="number" step="0.01" name="weight" placeholder="Enter weight in kg" required>
+
+        <label>Description</label>
+        <input type="text" name="description" placeholder="Short detail (e.g. 5 bottles)">
+
+        <div class="location-status">
+            <span id="locationDisplay">📍 Detecting your location...</span>
+        </div>
+
+        <input type="hidden" id="lat" name="latitude">
+        <input type="hidden" id="lon" name="longitude">
+        <input type="hidden" id="areaName" name="areaName">
+
+        <button type="submit">Submit to GreenTrace</button>
+    </form>
+</div>
+
+<script>
+    // 1. Start GPS Detection on Load
+    window.onload = function() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(success, error);
+        } else {
+            document.getElementById("locationDisplay").innerText = "❌ Geolocation not supported";
+        }
+    };
+
+    function success(position) {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+
+        // Save raw coordinates for MySQL Spatial
+        document.getElementById("lat").value = lat;
+        document.getElementById("lon").value = lon;
+
+        // 2. Reverse Geocoding: Turn coordinates into Name (e.g., Nashik)
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+            .then(response => response.json())
+            .then(data => {
+                const area = data.address.city || data.address.town || data.address.suburb || "Local Area";
+                const display = (data.address.road ? data.address.road + ", " : "") + area;
+                
+                document.getElementById("locationDisplay").innerText = "📍 " + display;
+                document.getElementById("areaName").value = area;
+            })
+            .catch(err => {
+                document.getElementById("locationDisplay").innerText = "📍 Location locked (Name hidden)";
+                document.getElementById("areaName").value = "Unknown Area";
+            });
+    }
+
+    function error() {
+        // Fallback for testing (Nashik Coordinates)
+        document.getElementById("locationDisplay").innerText = "📍 Default Location: Nashik (Manual)";
+        document.getElementById("lat").value = 20.0050;
+        document.getElementById("lon").value = 73.7898;
+        document.getElementById("areaName").value = "Nashik";
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GreenTrace | Recycler Radar</title>
+    <style>
+        body { background-color: #121212; color: white; font-family: 'Segoe UI', sans-serif; padding: 40px; }
+        
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #00FF85;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        h2 { color: #00FF85; margin: 0; }
+
+        /* The Live Pulse Animation */
+        .pulse {
+            width: 10px;
+            height: 10px;
+            background-color: #00FF85;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            box-shadow: 0 0 0 0 rgba(0, 255, 133, 0.7);
+            animation: pulse-green 2s infinite;
+        }
+
+        @keyframes pulse-green {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 133, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 255, 133, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 133, 0); }
+        }
+
+        .btn-refresh {
+            background: transparent;
+            color: #00FF85;
+            border: 1px solid #00FF85;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-refresh:hover { background: rgba(0, 255, 133, 0.1); }
+
+        .waste-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
+            gap: 20px; 
+        }
+
+        .card { 
+            background: #1e1e1e; 
+            border-radius: 12px; 
+            padding: 20px; 
+            border-left: 6px solid #00FF85;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .btn-claim { 
+            background: #00FF85; 
+            color: #121212; 
+            border: none; 
+            padding: 12px; 
+            width: 100%;
+            border-radius: 6px; 
+            font-weight: bold; 
+            cursor: pointer;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-section">
+        <h2>Nearby Waste Radar</h2>
+        <button class="btn-refresh" onclick="loadRadar()">🔄 Refresh Bids</button>
+    </div>
+
+    <p id="status"><span class="pulse"></span>📍 Detecting your location...</p>
+    
+    <div id="wasteList" class="waste-grid">
+        </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    loadRadar();
+});
+
+function loadRadar() {
+    const container = document.getElementById('wasteList');
+    container.innerHTML = '<p>Scanning for new bids...</p>';
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            document.getElementById('status').innerHTML = `<span class="pulse"></span>📍 Radar Active: Nashik (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+            fetchNearbyWaste(lat, lon);
+        }, error => {
+            document.getElementById('status').innerText = "❌ Please enable location to scan for waste.";
+        });
+    }
+}
+
+function fetchNearbyWaste(lat, lon) {
+    // Cache-buster used to ensure "Fresh" data from MySQL
+    fetch(`/api/waste/nearby?lat=${lat}&lon=${lon}&v=${Date.now()}`)
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('wasteList');
+            container.innerHTML = ''; 
+
+            if (data.length === 0) {
+                container.innerHTML = '<p style="grid-column: 1/-1;">No new waste items found in your range.</p>';
+                return;
+            }
+
+            data.forEach(item => {
+                const card = `
+                    <div class="card">
+                        <h3 style="color:#00FF85">${item.category}</h3>
+                        <p><strong>Location:</strong> ${item.areaName || 'Nashik'}</p>
+                        <p><strong>Weight:</strong> ${item.weight} kg</p>
+                        <p><strong>Reward:</strong> ${item.credits || (item.weight * 10)} Green Points</p>
+                        <p><em>"${item.description || 'No notes'}"</em></p>
+                        <button class="btn-claim" onclick="claimItem(${item.id})">
+                            Claim Waste
+                        </button>
+                    </div>`;
+                container.innerHTML += card;
+            });
+        });
+}
+
+function claimItem(id) {
+    if(!confirm("Claim this item?")) return;
+
+    fetch(`/api/waste/${id}/claim`, { method: 'POST' })
+        .then(response => {
+            if (response.ok) {
+                alert("✅ Success! Item claimed.");
+                loadRadar(); // Instantly update the list
+            } else {
+                alert("❌ This item was just claimed by someone else.");
+                loadRadar();
+            }
+        });
+}
+</script>
+</body>
+</html>
