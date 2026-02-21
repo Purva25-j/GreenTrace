@@ -2,11 +2,12 @@ package com.greentrace.app.controller;
 
 import com.greentrace.app.model.WasteItem;
 import com.greentrace.app.service.WasteService;
-
-import java.util.List;
-
+import com.greentrace.app.repository.WasteRepository; // Added this import
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/waste")
@@ -15,22 +16,32 @@ public class WasteController {
     @Autowired
     private WasteService wasteService;
 
-    // This method receives data from your HTML form
+    @Autowired
+    private WasteRepository wasteRepository; // Added this to fix your error
+
     @PostMapping("/add")
-    public String addWaste(@ModelAttribute WasteItem item) {
+    public String addWaste(@RequestBody WasteItem item) {
         wasteService.createWaste(item);
-        return "Waste Posted Successfully! Check your MySQL Database.";
+        return "Waste Posted Successfully!";
     }
-//    @GetMapping("/nearby")
-//    public List<WasteItem> getNearby(@RequestParam double lat, @RequestParam double lon) {
-//        // Increase 5.0 to 15.0 for a wider search area
-//        return wasteService.getNearbyWaste(lat, lon, 5); 
-//    }
+
     @GetMapping("/nearby")
     public List<WasteItem> getNearby(@RequestParam double lat, @RequestParam double lon) {
-        // Increase to 50km for testing to ensure Nashik points are caught
-        double testRadius = 50.0; 
-        System.out.println("Scanning for waste near Lat: " + lat + ", Lon: " + lon + " within " + testRadius + "km");
-        return wasteService.getNearbyWaste(lat, lon, testRadius);
+        // DEMO MODE: Bypass GPS math and show ALL available items
+        // This ensures "Chunchale" shows up regardless of your location
+        return wasteRepository.findAll().stream()
+                .filter(item -> item.getStatus() == WasteItem.Status.AVAILABLE)
+                .collect(Collectors.toList());
+    }
+
+    @GetMapping("/leaderboard")
+    public List<Object[]> getLeaderboard() {
+        return wasteService.getAreaLeaderboard();
+    }
+
+    @PostMapping("/claim/{id}")
+    public String claimWaste(@PathVariable Long id) {
+        wasteService.claimWaste(id);
+        return "Waste successfully claimed!";
     }
 }

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GreenTrace Leaderboard</title>
+    <style>
+        body { font-family: sans-serif; background: #0f172a; color: white; text-align: center; }
+        .box { background: #1e293b; margin: 50px auto; padding: 20px; width: 60%; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { background: #22c55e; padding: 10px; }
+        td { padding: 10px; border-bottom: 1px solid #334155; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h1>🏆 Nashik Leaderboard</h1>
+    <table>
+        <thead>
+        <tr><th>Area Name</th><th>Points</th></tr>
+        </thead>
+        <tbody id="data"></tbody>
+    </table>
+</div>
+
+<script>
+    fetch('/api/waste/leaderboard')
+        .then(res => res.json())
+        .then(data => {
+            const table = document.getElementById('data');
+            data.forEach(row => {
+                table.innerHTML += `<tr><td>${row[0]}</td><td>${row[1]} pts</td></tr>`;
+            });
+        });
+</script>
+</body>
+</html>
