@@ -36,9 +36,20 @@ public class WasteService {
     }
 
     public List<WasteItem> getNearbyWaste(double lat, double lon, double radiusKm) {
+        // 1. Convert to WKT format: POINT(Longitude Latitude)
         String pointWkt = "POINT(" + lon + " " + lat + ")";
+
+        // 2. IMPORTANT: Convert KM to Meters for MySQL
         double radiusMeters = radiusKm * 1000;
+
         return wasteRepository.findNearbyWaste(pointWkt, radiusMeters);
+    }
+    public void completeTransaction(Long id) {
+        WasteItem item = wasteRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Item not found"));
+
+        item.setStatus(WasteItem.Status.SOLD);
+        wasteRepository.save(item);
     }
 
     public List<Object[]> getAreaLeaderboard() {
@@ -51,5 +62,10 @@ public class WasteService {
 
     public void save(WasteItem item) {
         wasteRepository.save(item);
+    }
+
+    public Double getTotalImpact() {
+        Double total = wasteRepository.getTotalRecycledWeight();
+        return (total != null) ? total : 0.0;
     }
 }

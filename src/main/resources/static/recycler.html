@@ -13,8 +13,9 @@
         .category { font-size: 1.2rem; color: #22c55e; font-weight: bold; margin-bottom: 8px; }
         .area { color: #94a3b8; margin: 10px 0; font-weight: 500; }
         .claim-btn { background: #22c55e; color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
-        .claim-btn:hover { background: #16a34a; }
+        .sold-btn { background: #0ea5e9; color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
         .no-data { grid-column: 1 / -1; padding: 40px; background: #1e293b; border-radius: 12px; color: #94a3b8; }
+        .slider-box { background: #1e293b; padding: 15px; border-radius: 12px; margin-bottom: 20px; display: inline-block; border: 1px solid #334155; }
     </style>
 </head>
 <body>
@@ -22,77 +23,91 @@
     <h1>📡 Recycler Radar</h1>
     <p id="status" class="radar-status">Initializing GPS...</p>
 
-    <div id="wasteContainer" class="waste-grid">
+    <div class="slider-box">
+        <label for="radiusSlider" style="font-weight: bold; color: #22c55e;">🔍 Search Radius: </label>
+        <input type="range" id="radiusSlider" min="1" max="500" value="100" oninput="updateRadiusText(this.value)">
+        <span id="radiusValue" style="font-weight: bold;">100 km</span>
     </div>
+
+    <div id="wasteContainer" class="waste-grid"></div>
 </div>
 
 <script>
-    // 1. Get User Location and Start Radar
-    navigator.geolocation.getCurrentPosition(position => {
-        const lat = position.coords.latitude;
-        const lon = position.coords.longitude;
-        document.getElementById('status').innerText = `Radar Active: Scanning for available waste...`;
+    let currentLat, currentLon;
 
-        console.log(`Your GPS: Lat ${lat}, Lon ${lon}`);
-        fetchNearbyWaste(lat, lon);
+    function updateRadiusText(val) {
+        document.getElementById('radiusValue').innerText = val + " km";
+        if(currentLat && currentLon) fetchNearbyWaste(currentLat, currentLon, val);
+    }
+
+    navigator.geolocation.getCurrentPosition(position => {
+        currentLat = position.coords.latitude;
+        currentLon = position.coords.longitude;
+        document.getElementById('status').innerText = `Radar Active: Location Found`;
+        fetchNearbyWaste(currentLat, currentLon, document.getElementById('radiusSlider').value);
     }, error => {
-        document.getElementById('status').innerText = "❌ Error: Please enable GPS/Location access.";
-        console.error("Geolocation error:", error);
+        document.getElementById('status').innerText = "❌ Please enable GPS access.";
     });
 
-    // 2. Fetch and Display Waste
-    async function fetchNearbyWaste(lat, lon) {
+    async function fetchNearbyWaste(lat, lon, radius) {
         try {
-            const response = await fetch(`/api/waste/nearby?lat=${lat}&lon=${lon}`);
+            const response = await fetch(`/api/waste/nearby?lat=${lat}&lon=${lon}&radius=${radius}`);
             const items = await response.json();
-
-            console.log("Data received from Server:", items); // DEBUG: Check F12 Console
-
             const container = document.getElementById('wasteContainer');
-            container.innerHTML = ""; // Clear loader
+            container.innerHTML = "";
 
             if (!items || items.length === 0) {
-                container.innerHTML = `<div class="no-data"><h3>No available waste found near Chunchale.</h3><p>Try posting new waste from the main page first!</p></div>`;
+                container.innerHTML = `<div class="no-data"><h3>No waste found in this radius.</h3></div>`;
                 return;
             }
 
             items.forEach(item => {
-                // SAFETY: Handle both Java naming styles (areaName vs area_name)
-                const area = item.areaName || item.area_name || "Unknown Area";
-                const cardId = item.id;
+                const itemLat = item.latitude || (item.location ? item.location.y : 0);
+                const itemLon = item.longitude || (item.location ? item.location.x : 0);
+                const distance = calculateDistance(lat, lon, itemLat, itemLon);
+
+                // Determine which button to show
+                let actionButton = (item.status === 'CLAIMED')
+                    ? `<button class="sold-btn" onclick="markAsSold(${item.id})">Mark as Sold ✅</button>`
+                    : `<button class="claim-btn" onclick="claimWaste(${item.id})">Claim Waste</button>`;
 
                 const card = document.createElement('div');
                 card.className = 'waste-card';
                 card.innerHTML = `
                     <div class="category">📦 ${item.category}</div>
-                    <div class="area">📍 Area: ${area}</div>
+                    <div class="area">📍 ${item.areaName || 'Unknown Area'}</div>
+                    <p style="color: #fbbf24; font-weight: bold;">📏 ${distance.toFixed(2)} km away</p>
                     <p><strong>Weight:</strong> ${item.weight} kg</p>
-                    <p><strong>Reward:</strong> 🪙 ${item.credits} pts</p>
-                    <button class="claim-btn" onclick="claimWaste(${cardId})">Claim & Earn Points</button>
+                    ${actionButton}
                 `;
                 container.appendChild(card);
             });
         } catch (err) {
-            console.error("Fetch error:", err);
-            document.getElementById('status').innerText = "❌ Connection Error: Is the Backend running?";
+            console.error("Fetch Error:", err);
+            document.getElementById('status').innerText = "❌ Backend connection failed.";
         }
     }
 
-    // 3. Claim Action
     async function claimWaste(id) {
-        if(!confirm("Are you sure you want to claim this waste?")) return;
+        if(!confirm("Claim this waste?")) return;
+        const res = await fetch(`/api/waste/claim/${id}`, { method: 'POST' });
+        if(res.ok) { alert("Claimed!"); location.reload(); }
+    }
 
-        try {
-            const response = await fetch(`/api/waste/claim/${id}`, { method: 'POST' });
-            if (response.ok) {
-                alert("✅ Success! Waste claimed. Check the Leaderboard!");
-                location.reload();
-            } else {
-                alert("❌ Failed to claim. It might have been taken already.");
-            }
-        } catch (err) {
-            alert("❌ Server Error while claiming.");
-        }
+    async function markAsSold(id) {
+        if(!confirm("Mark as Sold?")) return;
+        const res = await fetch(`/api/waste/sold/${id}`, { method: 'POST' });
+        if(res.ok) { alert("Sold! Removed from Radar."); location.reload(); }
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
     }
 </script>
 </body>
