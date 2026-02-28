@@ -4,18 +4,49 @@
     <meta charset="UTF-8">
     <title>GreenTrace - Post Waste</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; text-align: center; }
-        .form-container { max-width: 500px; margin: 50px auto; background: #1e293b; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-        input, select { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: #334155; color: white; }
-        button { background: #22c55e; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; }
-        button:hover { background: #16a34a; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; text-align: center; margin: 0; padding: 0; }
+
+        /* --- LOGO STYLES --- */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 30px 20px 10px 20px;
+            gap: 15px;
+        }
+        .logo-img {
+            height: 60px; /* Adjust height based on your logo design */
+            width: auto;
+            border-radius: 10px;
+        }
+        .brand-name {
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: #22c55e;
+            margin: 0;
+            letter-spacing: 1px;
+        }
+        /* ------------------- */
+
+        .form-container { max-width: 500px; margin: 20px auto 50px auto; background: #1e293b; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }
+        input, select { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #475569; background: #334155; color: white; box-sizing: border-box; }
+        input:focus, select:focus { border-color: #22c55e; outline: none; }
+        button { background: #22c55e; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; margin-top: 10px; transition: 0.3s; }
+        button:hover { background: #16a34a; transform: translateY(-2px); }
         .status { margin-top: 15px; font-size: 0.9rem; color: #94a3b8; }
+        p.subtitle { color: #94a3b8; margin-bottom: 25px; }
     </style>
 </head>
 <body>
+
+<div class="header">
+    <img src="/images/logo.jpeg" alt="🌱" class="logo-img" onerror="this.style.display='none'">
+    <h1 class="brand-name">GreenTrace</h1>
+</div>
+
 <div class="form-container">
-    <h1>🌱 Post Waste</h1>
-    <p>Help Nashik go green by reporting recyclable waste.</p>
+    <h2>Post Waste</h2>
+    <p class="subtitle">Help Nashik go green by reporting recyclable waste.</p>
 
     <form id="wasteForm">
         <select id="category" required>
@@ -25,10 +56,9 @@
             <option value="Metal">Metal</option>
             <option value="Paper">Paper</option>
         </select>
-
         <input type="number" id="weight" placeholder="Weight (kg)" step="0.1" required>
         <input type="text" id="areaName" placeholder="Area Name (e.g. CIDCO)" required>
-
+        <input type="tel" id="phoneNumber" placeholder="Your Phone Number" required>
         <button type="submit">Submit Waste</button>
     </form>
     <p id="formStatus" class="status">Click submit to share your location and post.</p>
@@ -38,12 +68,19 @@
     document.getElementById('wasteForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
-        // Get user's location first
+        if (!navigator.geolocation) {
+            alert("Geolocation is not supported by your browser");
+            return;
+        }
+
+        document.getElementById('formStatus').innerText = "Locating you...";
+
         navigator.geolocation.getCurrentPosition(async (position) => {
             const wasteData = {
                 category: document.getElementById('category').value,
                 weight: parseFloat(document.getElementById('weight').value),
                 areaName: document.getElementById('areaName').value,
+                phoneNumber: document.getElementById('phoneNumber').value,
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude
             };
@@ -56,8 +93,11 @@
 
             if (response.ok) {
                 alert("Waste Posted Successfully!");
-                window.location.href = "recycler.html"; // Go see it on the radar!
+                window.location.href = "status.html";
             }
+        }, error => {
+            document.getElementById('formStatus').innerText = "❌ Please enable GPS access.";
+            alert("Please allow location access to post waste.");
         });
     });
 </script>

@@ -12,39 +12,32 @@ public class WasteService {
     @Autowired
     private WasteRepository wasteRepository;
 
-    // 1. Create new waste (Status MUST be AVAILABLE for Radar)
-    // 1. Create new waste (Status MUST be AVAILABLE for Radar)
     public void createWaste(WasteItem item) {
-        // Use the Enum instead of a String
         item.setStatus(WasteItem.Status.AVAILABLE);
 
-        // FIX: Cast the math to (int) to match your Integer credits field
         if (item.getCredits() == null) {
             item.setCredits((int) (item.getWeight() * 10));
         }
 
         wasteRepository.save(item);
     }
-    // 2. Claim Waste (This makes it show up on LEADERBOARD)
-    public void claimWaste(Long id) {
+
+    public void claimWaste(Long id, String recyclerPhone) {
         WasteItem item = wasteRepository.findById(id).orElse(null);
         if (item != null) {
-            // FIX: Use WasteItem.Status.CLAIMED instead of "CLAIMED"
             item.setStatus(WasteItem.Status.CLAIMED);
+            item.setRecyclerPhone(recyclerPhone);
             wasteRepository.save(item);
         }
     }
 
     public List<WasteItem> getNearbyWaste(double lat, double lon, double radiusKm) {
-        // 1. Convert to WKT format: POINT(Longitude Latitude)
         String pointWkt = "POINT(" + lon + " " + lat + ")";
-
-        // 2. IMPORTANT: Convert KM to Meters for MySQL
         double radiusMeters = radiusKm * 1000;
-
         return wasteRepository.findNearbyWaste(pointWkt, radiusMeters);
     }
-    public void completeTransaction(Long id) {
+
+    public void markAsSold(Long id) {
         WasteItem item = wasteRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Item not found"));
 

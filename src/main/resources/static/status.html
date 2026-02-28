@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GreenTrace - Request Status</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; text-align: center; }
+        .container { max-width: 500px; margin: 50px auto; background: #1e293b; padding: 30px; border-radius: 15px; }
+        .status-card { background: #334155; padding: 20px; border-radius: 10px; margin-top: 20px; }
+        .status-badge { padding: 8px 15px; border-radius: 20px; font-weight: bold; }
+        .pending { background: #fbbf24; color: black; }
+        .accepted { background: #22c55e; color: white; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>📋 Request Status</h1>
+    <div id="statusContent">Loading...</div>
+</div>
+
+<script>
+    async function checkStatus() {
+        try {
+            // Fetch the latest request status from your backend
+            const response = await fetch('/api/waste/my-latest-request');
+            const data = await response.json();
+
+            const content = document.getElementById('statusContent');
+
+            if (!data || data.status === 'AVAILABLE') {
+                content.innerHTML = `
+                    <div class="status-card">
+                        <h3>Status: <span class="status-badge pending">Waiting for Recycler</span></h3>
+                        <p>We are searching for a nearby recycler to collect your waste.</p>
+                    </div>
+                `;
+            } else if (data.status === 'CLAIMED') {
+                // --- UPDATED: Using actual recyclerPhone data ---
+                content.innerHTML = `
+                    <div class="status-card">
+                        <h3>Status: <span class="status-badge accepted">Recycler On the Way!</span></h3>
+                        <p>A recycler has accepted your request.</p>
+                        <hr style="border: 1px solid #475569;">
+                        <p><strong>Recycler Phone:</strong></p>
+                        <p style="font-size: 1.2rem; color: #fbbf24; font-weight: bold;">
+                            📞 ${data.recyclerPhone || 'No phone provided'}
+                        </p>
+                    </div>
+                `;
+                // --------------------------------------------------
+            } else if (data.status === 'SOLD') {
+                content.innerHTML = `
+                    <div class="status-card">
+                        <h3>Status: <span class="status-badge accepted" style="background: #0ea5e9;">Collected! ✅</span></h3>
+                        <p>Thank you for recycling! Points have been added to your account.</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error("Error fetching status:", error);
+        }
+    }
+
+    // Run immediately, then every 5 seconds
+    checkStatus();
+    setInterval(checkStatus, 5000);
+</script>
+</body>
+</html>
